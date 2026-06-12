@@ -14,10 +14,6 @@
   GameUI.init(socket);
   VideoChat.init(socket);
 
-  // ---------- ticker ----------
-  const tickerWords = 'DRAW ✦ GUESS ✦ FLEX ✦ COOK ✦ JUDGE ✦ VIBE ✦ WIN ✦ SCRIBZO ✦ ';
-  $('ticker-track').innerHTML = `<span>${tickerWords.repeat(6)}</span><span>${tickerWords.repeat(6)}</span>`;
-
   // ---------- screens / toast ----------
   function showScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -146,40 +142,54 @@
     input.value = '';
   });
 
-  // ---------- game buttons ----------
+  // ---------- game buttons: independent cam & mic ----------
+  function refreshAVButtons() {
+    const camBtn = $('btn-toggle-video');
+    const micBtn = $('btn-toggle-mic');
+    camBtn.textContent = VideoChat.isCamOn() ? '📹' : '📷';
+    camBtn.classList.toggle('live', VideoChat.isCamOn());
+    micBtn.textContent = VideoChat.isMicOn() ? '🎙️' : '🔇';
+    micBtn.classList.toggle('live', VideoChat.isMicOn());
+  }
+
   $('btn-toggle-video').onclick = async () => {
     const btn = $('btn-toggle-video');
-    if (VideoChat.isCamOn()) {
-      VideoChat.turnOffCamera();
-      btn.textContent = '📷';
-      btn.classList.remove('live');
-      $('btn-toggle-mic').classList.add('hidden');
-      toast('camera off');
-    } else {
-      try {
-        btn.disabled = true;
-        await VideoChat.turnOnCamera(myName, currentPlayers.map(p => p.id));
-        btn.textContent = '📹';
-        btn.classList.add('live');
-        $('btn-toggle-mic').classList.remove('hidden');
-        toast("ur live 🎥 don't be weird");
-      } catch (err) {
-        toast(err.message);
-      } finally {
-        btn.disabled = false;
-      }
+    try {
+      btn.disabled = true;
+      const on = await VideoChat.toggleCam(myName, currentPlayers.map(p => p.id));
+      toast(on ? "camera on 🎥 don't be weird" : 'camera off');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
+      refreshAVButtons();
     }
   };
 
-  $('btn-toggle-mic').onclick = () => {
-    const on = VideoChat.toggleMic();
-    $('btn-toggle-mic').textContent = on ? '🎙️' : '🔇';
-    toast(on ? 'mic on' : 'muted 🤐');
+  $('btn-toggle-mic').onclick = async () => {
+    const btn = $('btn-toggle-mic');
+    try {
+      btn.disabled = true;
+      const on = await VideoChat.toggleMic(myName, currentPlayers.map(p => p.id));
+      toast(on ? 'mic on 🎙️' : 'muted 🤐');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
+      refreshAVButtons();
+    }
   };
 
-  $('btn-leave').onclick = () => { if (confirm('leave the game?')) location.reload(); };
+  $('btn-leave').onclick = () => {
+    if (confirm('leave the game?')) {
+      VideoChat.shutdown(); // kill all audio/video before leaving
+      location.reload();
+    }
+  };
 
   $('btn-back-lobby').onclick = () => {
+    VideoChat.shutdown(); // no ghost voices in the lobby
+    refreshAVButtons();
     GameUI.hideModals();
     showScreen('lobby');
     renderLobby(currentPlayers);

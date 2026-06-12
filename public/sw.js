@@ -1,5 +1,5 @@
 // SCRIBZO service worker — cache the app shell, never touch socket traffic
-const CACHE = 'scribzo-v2';
+const CACHE = 'scribzo-v3';
 const SHELL = [
   '/',
   '/index.html',

@@ -124,6 +124,45 @@ const GameUI = (() => {
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
+  // ---------- masked word display ----------
+  // multi-word answers: show a clear "•" between words + letter counts, e.g.  _ a _ • _ _  (3·2)
+  function formatMasked(masked) {
+    const words = masked.split(' ').filter(w => w.length);
+    const shown = words.map(w => w.split('').join(' ')).join('  •  ');
+    if (words.length > 1) {
+      return `${shown}  <small style="opacity:.55;letter-spacing:1px">(${words.map(w => w.length).join('·')})</small>`;
+    }
+    return shown;
+  }
+
+  // ---------- sounds (tiny WebAudio synth, no files needed) ----------
+  let audioCtx = null;
+  function beep(freq, start, dur, type = 'triangle', gain = 0.12) {
+    const t = audioCtx.currentTime + start;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t);
+    o.stop(t + dur);
+  }
+  function playSound(kind) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (kind === 'correct-me') {        // you guessed it — happy arpeggio
+        [523, 659, 784, 1047].forEach((f, i) => beep(f, i * 0.09, 0.22));
+      } else if (kind === 'correct-other') { // someone else got it — soft ding
+        beep(880, 0, 0.15, 'sine', 0.07);
+      } else if (kind === 'win') {        // game over fanfare
+        [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, i * 0.13, 0.3));
+      }
+    } catch (e) { /* audio blocked — no big deal */ }
+  }
+
   // ---------- players & coins ----------
   function renderPlayers(players) {
     const ranked = [...players].sort((a, b) => b.score - a.score);
@@ -251,14 +290,14 @@ const GameUI = (() => {
       }
 
       if (!isDrawer) {
-        $('word-display').textContent = maskedWord.split('').join(' ');
+        $('word-display').innerHTML = formatMasked(maskedWord);
         $('word-display').classList.remove('is-word');
       }
       Canvas.resize();
     });
 
     socket.on('hint-update', ({ maskedWord }) => {
-      if (!isDrawer) $('word-display').textContent = maskedWord.split('').join(' ');
+      if (!isDrawer) $('word-display').innerHTML = formatMasked(maskedWord);
     });
 
     socket.on('timer', ({ timeLeft }) => updateTimer(timeLeft));
@@ -299,10 +338,15 @@ const GameUI = (() => {
 
     socket.on('system-message', ({ text, type }) => addChat(esc(text), `sys-${type || 'info'}`));
 
-    socket.on('player-guessed', ({ playerName, points, players }) => {
+    socket.on('player-guessed', ({ playerId, playerName, points, players }) => {
       addChat(`🎉 ${esc(playerName)} got it! +${points}`, 'sys-correct');
       renderPlayers(players);
-      if (players.find(p => p.id === socket.id && p.guessed)) confettiBurst(30);
+      if (playerId === socket.id) {
+        playSound('correct-me');
+        confettiBurst(30);
+      } else {
+        playSound('correct-other');
+      }
     });
 
     socket.on('turn-end', ({ word, reason, players, aiJudge }) => {
@@ -350,6 +394,7 @@ const GameUI = (() => {
       renderLeaderboard(leaderboard);
       if (message) addChat(esc(message), 'sys-warn');
       showModal('modal-game-over');
+      playSound('win');
       confettiBurst(120);
     });
   }

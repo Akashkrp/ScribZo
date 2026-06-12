@@ -38,23 +38,8 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ---- ticker ---- */
-.ticker {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 80;
-  background: var(--ink); color: var(--paper);
-  border-bottom: var(--bw) solid var(--ink);
-  overflow: hidden; height: 32px; display: flex; align-items: center;
-}
-.ticker-track {
-  display: inline-flex; white-space: nowrap;
-  font-family: var(--font-display); font-size: 0.75rem; letter-spacing: 2px;
-  animation: ticker-scroll 25s linear infinite;
-}
-.ticker-track span { padding: 0 18px; }
-@keyframes ticker-scroll { to { transform: translateX(-50%); } }
-
 /* ---- screens ---- */
-.screen { display: none; position: relative; z-index: 1; min-height: 100vh; padding-top: 32px; }
+.screen { display: none; position: relative; z-index: 1; min-height: 100vh; }
 .screen.active { display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 .center { text-align: center; }
@@ -317,7 +302,7 @@ h1, h2, h3, .logo-mini { font-family: var(--font-display); text-transform: upper
 
 /* ---- toasts ---- */
 .toast-zone {
-  position: fixed; top: 42px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
   z-index: 100; display: flex; flex-direction: column; gap: 8px; align-items: center;
 }
 .toast {
@@ -357,11 +342,8 @@ h1, h2, h3, .logo-mini { font-family: var(--font-display); text-transform: upper
 /* ---- phones ---- */
 @media (max-width: 600px) {
   body { background-size: 22px 22px; }
-  .ticker { height: 26px; }
-  .ticker-track { font-size: 0.62rem; }
-  .screen { padding-top: 26px; }
 
-  #screen-home { padding: 40px 14px 24px; }
+  #screen-home { padding: 24px 14px 24px; }
   .logo { text-shadow: 4px 4px 0 var(--yellow); }
   .tagline { font-size: 0.95rem; }
   .home-card { padding: 22px 16px; transform: none; }
@@ -379,5 +361,5 @@ h1, h2, h3, .logo-mini { font-family: var(--font-display); text-transform: upper
   .setting-row { flex-direction: column; align-items: flex-start; gap: 6px; }
 
   .toast { font-size: 0.8rem; padding: 7px 16px; }
-  .toast-zone { top: 32px; width: 92vw; }
+  .toast-zone { top: 10px; width: 92vw; }
 }

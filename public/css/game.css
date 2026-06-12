@@ -1,6 +1,6 @@
 /* ============ SCRIBZO — game screen ============ */
 
-#screen-game { padding: 44px 14px 14px; gap: 12px; max-height: 100vh; }
+#screen-game { padding: 14px; gap: 12px; max-height: 100vh; }
 
 /* ---- topbar ---- */
 .game-topbar {
@@ -161,6 +161,7 @@
 .tool-row { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .btn-tool { padding: 7px 11px; font-size: 0.95rem; box-shadow: 2px 2px 0 var(--ink); }
 .btn-tool.active { background: var(--yellow); }
+.btn-icon.live { background: var(--green); }
 
 .size-dots { display: flex; gap: 6px; align-items: center; margin-right: 6px; }
 .size-dot {
@@ -293,7 +294,7 @@
 
 /* ---- responsive: phones ---- */
 @media (max-width: 600px) {
-  #screen-game { padding: 38px 6px 6px; gap: 8px; min-height: 100dvh; }
+  #screen-game { padding: 6px; gap: 8px; min-height: 100dvh; }
 
   .game-topbar { padding: 8px 10px; gap: 8px; }
   .logo-mini { display: none; }

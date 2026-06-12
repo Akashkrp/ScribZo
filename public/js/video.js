@@ -1,4 +1,5 @@
-// ============ WebRTC video chat (P2P mesh, Google Meet style) ============
+// ============ SCRIBZO voice & video (P2P mesh) ============
+// Camera and mic are fully independent: voice-only, video-only, or both.
 const VideoChat = (() => {
   const ICE_CONFIG = {
     iceServers: [
@@ -8,26 +9,24 @@ const VideoChat = (() => {
   };
 
   let socket = null;
-  let localStream = null;
+  let myName = 'me';
   let camOn = false;
-  let micOn = true;
+  let micOn = false;
+  let videoTrack = null;
+  let audioTrack = null;
+  let localStream = new MediaStream();
   const peers = new Map();      // peerId -> RTCPeerConnection
-  const peerNames = new Map();  // peerId -> name
+  const peerNames = new Map();
   const strip = document.getElementById('video-strip');
 
   function init(sock) {
     socket = sock;
 
-    // The peer who turns their camera on initiates offers to everyone,
-    // so we don't offer back here (avoids offer glare).
-    socket.on('video-peer-joined', () => {});
+    socket.on('video-peer-joined', () => {}); // joiner initiates; nothing to do
 
-    socket.on('video-peer-left', ({ peerId }) => {
-      closePeer(peerId);
-    });
+    socket.on('video-peer-left', ({ peerId }) => closePeer(peerId));
 
     socket.on('video-offer', async ({ from, offer }) => {
-      // someone wants to send us video — accept even if our cam is off
       const pc = getOrCreatePeer(from);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
@@ -37,7 +36,9 @@ const VideoChat = (() => {
 
     socket.on('video-answer', async ({ from, answer }) => {
       const pc = peers.get(from);
-      if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      if (pc && pc.signalingState === 'have-local-offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      }
     });
 
     socket.on('video-ice', async ({ from, candidate }) => {
@@ -47,60 +48,68 @@ const VideoChat = (() => {
       }
     });
 
-    socket.on('video-state', ({ peerId, camOn: on, micOn: mic }) => {
+    socket.on('video-state', ({ peerId, camOn: cam, micOn: mic }) => {
       const tile = document.getElementById(`vt-${peerId}`);
       if (!tile) return;
-      tile.querySelector('.vt-cam-off')?.classList.toggle('hidden', on);
+      tile.querySelector('.vt-cam-off')?.classList.toggle('hidden', cam);
       const micEl = tile.querySelector('.vt-mic');
       if (micEl) micEl.textContent = mic ? '🎙️' : '🔇';
     });
   }
 
+  // ---------- peers ----------
   function getOrCreatePeer(peerId) {
     if (peers.has(peerId)) return peers.get(peerId);
     const pc = new RTCPeerConnection(ICE_CONFIG);
     peers.set(peerId, pc);
 
-    if (localStream) {
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-    }
+    attachLocalTracks(pc);
 
     pc.onicecandidate = (e) => {
       if (e.candidate) socket.emit('video-ice', { to: peerId, candidate: e.candidate });
     };
-
     pc.ontrack = (e) => {
       addTile(peerId, peerNames.get(peerId) || 'player', e.streams[0], false);
     };
-
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) closePeer(peerId);
+      if (['failed', 'closed'].includes(pc.connectionState)) closePeer(peerId);
     };
-
     return pc;
   }
 
-  async function connectToPeer(peerId, isInitiator) {
-    const pc = getOrCreatePeer(peerId);
-    // ensure our current tracks are attached (handles renegotiation)
-    if (localStream) {
-      const sending = pc.getSenders().map(s => s.track);
-      localStream.getTracks().forEach(t => {
-        if (!sending.includes(t)) pc.addTrack(t, localStream);
-      });
-    }
-    if (isInitiator) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit('video-offer', { to: peerId, offer });
+  function attachLocalTracks(pc) {
+    const sending = pc.getSenders().map(s => s.track).filter(Boolean);
+    for (const t of localStream.getTracks()) {
+      if (!sending.includes(t)) pc.addTrack(t, localStream);
     }
   }
 
-  // called when new players join the room — if we're live, offer to them
-  function refreshPeers(playerIds) {
-    if (!camOn) return;
+  async function renegotiate(peerId, pc) {
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('video-offer', { to: peerId, offer });
+    } catch (e) { /* glare — remote offer will land instead */ }
+  }
+
+  async function broadcastTracks(playerIds) {
+    socket.emit('video-join');
     for (const pid of playerIds) {
-      if (pid !== socket.id && !peers.has(pid)) connectToPeer(pid, true);
+      if (pid === socket.id) continue;
+      const existed = peers.has(pid);
+      const pc = getOrCreatePeer(pid);
+      if (existed) attachLocalTracks(pc);
+      await renegotiate(pid, pc);
+    }
+  }
+
+  function removeTrackEverywhere(track) {
+    if (!track) return;
+    track.stop();
+    localStream.removeTrack(track);
+    for (const pc of peers.values()) {
+      const sender = pc.getSenders().find(s => s.track === track);
+      if (sender) pc.removeTrack(sender);
     }
   }
 
@@ -108,10 +117,10 @@ const VideoChat = (() => {
     const pc = peers.get(peerId);
     if (pc) { pc.close(); peers.delete(peerId); }
     document.getElementById(`vt-${peerId}`)?.remove();
-    updateStripVisibility();
+    updateStrip();
   }
 
-  // ---- tiles ----
+  // ---------- tiles ----------
   function addTile(id, name, stream, isLocal) {
     let tile = document.getElementById(`vt-${id}`);
     if (!tile) {
@@ -121,18 +130,29 @@ const VideoChat = (() => {
       tile.innerHTML = `
         <video autoplay playsinline ${isLocal ? 'muted' : ''}></video>
         <div class="vt-cam-off hidden">📷❌</div>
-        <span class="vt-mic">🎙️</span>
-        <span class="vt-name">${escapeHtml(name)}${isLocal ? ' (you)' : ''}</span>`;
+        <span class="vt-mic">🔇</span>
+        <span class="vt-name">${escapeHtml(name)}${isLocal ? ' (u)' : ''}</span>`;
       strip.appendChild(tile);
     }
     const video = tile.querySelector('video');
     if (video.srcObject !== stream) video.srcObject = stream;
-    updateStripVisibility();
+    updateStrip();
   }
 
-  function updateStripVisibility() {
-    strip.classList.toggle('hidden', strip.children.length === 0);
+  function updateLocalTile() {
+    const hasAnything = camOn || micOn;
+    if (!hasAnything) {
+      document.getElementById('vt-local')?.remove();
+      updateStrip();
+      return;
+    }
+    addTile('local', myName, localStream, true);
+    const tile = document.getElementById('vt-local');
+    tile.querySelector('.vt-cam-off').classList.toggle('hidden', camOn);
+    tile.querySelector('.vt-mic').textContent = micOn ? '🎙️' : '🔇';
   }
+
+  function updateStrip() { strip.classList.toggle('hidden', strip.children.length === 0); }
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -140,56 +160,90 @@ const VideoChat = (() => {
     return div.innerHTML;
   }
 
-  // ---- public controls ----
-  async function turnOnCamera(myName, playerIds) {
+  function emitState() { socket.emit('video-state', { camOn, micOn }); }
+
+  // ---------- public: independent toggles ----------
+  async function toggleCam(name, playerIds) {
+    myName = name || myName;
+    if (camOn) {
+      removeTrackEverywhere(videoTrack);
+      videoTrack = null;
+      camOn = false;
+      updateLocalTile();
+      emitState();
+      return false;
+    }
+    let stream;
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 320 }, height: { ideal: 240 } },
-        audio: true
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 320 }, height: { ideal: 240 } }
       });
-    } catch (err) {
-      throw new Error('Camera/mic access denied. Check browser permissions!');
+    } catch (e) {
+      throw new Error('camera blocked — check browser permissions!');
     }
+    videoTrack = stream.getVideoTracks()[0];
+    localStream.addTrack(videoTrack);
     camOn = true;
+    updateLocalTile();
+    await broadcastTracks(playerIds);
+    emitState();
+    return true;
+  }
+
+  async function toggleMic(name, playerIds) {
+    myName = name || myName;
+    if (micOn) {
+      removeTrackEverywhere(audioTrack);
+      audioTrack = null;
+      micOn = false;
+      updateLocalTile();
+      emitState();
+      return false;
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      throw new Error('mic blocked — check browser permissions!');
+    }
+    audioTrack = stream.getAudioTracks()[0];
+    localStream.addTrack(audioTrack);
     micOn = true;
-    addTile('local', myName, localStream, true);
-    socket.emit('video-join');
-    socket.emit('video-state', { camOn, micOn });
-    // proactively connect to everyone already in the room
-    for (const pid of playerIds) {
-      if (pid !== socket.id) await connectToPeer(pid, true);
-    }
+    updateLocalTile();
+    await broadcastTracks(playerIds);
+    emitState();
+    return true;
   }
 
-  function turnOffCamera() {
+  // full teardown — stops sending AND receiving (used when leaving a game)
+  function shutdown() {
+    removeTrackEverywhere(videoTrack);
+    removeTrackEverywhere(audioTrack);
+    videoTrack = null;
+    audioTrack = null;
     camOn = false;
-    if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
-      // stop sending, but keep connections alive so we still SEE others
-      for (const pc of peers.values()) {
-        pc.getSenders().forEach(s => { if (s.track) pc.removeTrack(s); });
-      }
-      localStream = null;
-    }
-    document.getElementById('vt-local')?.remove();
-    socket.emit('video-state', { camOn: false, micOn });
+    micOn = false;
+    for (const id of [...peers.keys()]) closePeer(id);
+    strip.innerHTML = '';
+    updateStrip();
     socket.emit('video-leave');
-    updateStripVisibility();
+    emitState();
   }
 
-  function toggleMic() {
-    if (!localStream) return micOn;
-    micOn = !micOn;
-    localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
-    socket.emit('video-state', { camOn, micOn });
-    const micEl = document.querySelector('#vt-local .vt-mic');
-    if (micEl) micEl.textContent = micOn ? '🎙️' : '🔇';
-    return micOn;
+  // when new players join mid-session: if we're live, offer to them
+  function refreshPeers(playerIds) {
+    if (!camOn && !micOn) return;
+    for (const pid of playerIds) {
+      if (pid !== socket.id && !peers.has(pid)) {
+        const pc = getOrCreatePeer(pid);
+        renegotiate(pid, pc);
+      }
+    }
   }
 
   function setPeerName(peerId, name) { peerNames.set(peerId, name); }
-
   function isCamOn() { return camOn; }
+  function isMicOn() { return micOn; }
 
-  return { init, turnOnCamera, turnOffCamera, toggleMic, setPeerName, isCamOn, closePeer, refreshPeers };
+  return { init, toggleCam, toggleMic, shutdown, refreshPeers, setPeerName, isCamOn, isMicOn };
 })();
