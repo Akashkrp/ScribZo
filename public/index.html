@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SCRIBZO ✦ draw guess flex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/game.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <!-- scrolling ticker -->
+  <div class="ticker"><div class="ticker-track" id="ticker-track"></div></div>
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen active">
+    <div class="home-wrap">
+      <div class="home-stickers">
+        <span class="sticker s1">no cap 🧢</span>
+        <span class="sticker s2">100% human chaos</span>
+        <span class="sticker s3">cam on = elite</span>
+        <span class="sticker s4">✦ est. rn ✦</span>
+      </div>
+
+      <h1 class="logo">SCRIB<span class="logo-z">Z</span>O</h1>
+      <p class="tagline">the drawing game where ur friends watch u fail <b>live on camera</b> 📹</p>
+
+      <div class="daily-banner" id="daily-banner">
+        <span class="db-label">today's challenge</span>
+        <span class="db-text" id="db-text">loading the chaos…</span>
+      </div>
+
+      <div class="home-card">
+        <div class="avatar-picker">
+          <button id="avatar-prev" class="avatar-arrow" type="button">←</button>
+          <div id="avatar-display" class="avatar-display">🐸</div>
+          <button id="avatar-next" class="avatar-arrow" type="button">→</button>
+        </div>
+
+        <input id="input-name" class="input-brutal" type="text" maxlength="16" placeholder="WHO ARE U ?" autocomplete="off" />
+
+        <button id="btn-quick-play" class="btn-brutal btn-yellow btn-xl">PLAY NOW ⚡</button>
+        <div class="home-row">
+          <button id="btn-create-room" class="btn-brutal btn-pink">+ make room</button>
+          <button id="btn-show-join" class="btn-brutal btn-blue">join w/ code</button>
+        </div>
+        <div id="join-box" class="join-box hidden">
+          <input id="input-room-code" class="input-brutal input-code" type="text" maxlength="5" placeholder="•••••" autocomplete="off" />
+          <button id="btn-join-room" class="btn-brutal btn-green">GO</button>
+        </div>
+        <p id="home-error" class="error-text hidden"></p>
+      </div>
+
+      <div class="feature-strip">
+        <span>🤖 AI judge</span><span>🪙 power-ups</span><span>📹 face cams</span><span>🏆 leaderboard</span><span>🎯 topic words</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen">
+    <div class="lobby-wrap">
+      <div class="lobby-main">
+        <div class="lobby-head">
+          <h2 class="lobby-title">the lobby</h2>
+          <button class="room-code-pill" id="room-code-pill" title="click to copy">
+            CODE: <strong id="lobby-room-code">·····</strong> 📋
+          </button>
+        </div>
+
+        <div id="lobby-players" class="lobby-players"></div>
+
+        <div class="lobby-settings" id="lobby-settings">
+          <h3>vibe settings <span class="hosty" id="settings-note">(host controls)</span></h3>
+          <div class="setting-row">
+            <label>rounds</label>
+            <div class="chip-group" id="chips-rounds">
+              <button class="chip" data-val="2">2</button>
+              <button class="chip active" data-val="3">3</button>
+              <button class="chip" data-val="5">5</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>draw time</label>
+            <div class="chip-group" id="chips-time">
+              <button class="chip" data-val="60">60s</button>
+              <button class="chip active" data-val="80">80s</button>
+              <button class="chip" data-val="120">120s</button>
+            </div>
+          </div>
+          <div class="setting-row setting-topic">
+            <label>word topic 🎯</label>
+            <div class="chip-group chip-wrap" id="chips-topic"></div>
+          </div>
+        </div>
+
+        <button id="btn-start-game" class="btn-brutal btn-yellow btn-xl">START THE CHAOS 🚀</button>
+        <p id="lobby-hint" class="hosty center">waiting for the host to press the big button…</p>
+      </div>
+
+      <aside class="lobby-chat">
+        <div class="chat-header">pre-game trash talk 💬</div>
+        <div id="lobby-chat-messages" class="chat-messages"></div>
+        <form id="lobby-chat-form" class="chat-form">
+          <input id="lobby-chat-input" class="input-brutal chat-input" type="text" maxlength="60" placeholder="say sum…" autocomplete="off" />
+          <button type="submit" class="btn-brutal btn-pink btn-send">➤</button>
+        </form>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen">
+    <header class="game-topbar">
+      <div class="topbar-left">
+        <span class="logo-mini">SCRIBZO</span>
+        <span class="round-badge" id="round-badge">RND 1/3</span>
+        <div class="timer-box" id="timer-box"><span id="timer-text">--</span></div>
+      </div>
+      <div class="word-display" id="word-display">waiting…</div>
+      <div class="topbar-right">
+        <span class="coin-pill" id="coin-pill">🪙 <b id="coin-count">30</b></span>
+        <button id="btn-toggle-video" class="btn-brutal btn-icon" title="camera">📷</button>
+        <button id="btn-toggle-mic" class="btn-brutal btn-icon hidden" title="mic">🎙️</button>
+        <button id="btn-leave" class="btn-brutal btn-icon btn-red" title="leave">✕</button>
+      </div>
+    </header>
+
+    <div id="video-strip" class="video-strip hidden"></div>
+
+    <main class="game-layout">
+      <aside class="players-panel" id="players-panel"></aside>
+
+      <div class="canvas-zone">
+        <div id="challenge-banner" class="challenge-banner hidden"></div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <canvas id="draw-canvas" width="800" height="600"></canvas>
+          <div id="canvas-overlay" class="canvas-overlay hidden">
+            <div class="overlay-content" id="overlay-content"></div>
+          </div>
+          <div id="freeze-fx" class="freeze-fx hidden">🧊 TIME FROZEN 🧊</div>
+        </div>
+
+        <div id="toolbar" class="toolbar hidden">
+          <div class="color-row" id="color-row"></div>
+          <div class="tool-row">
+            <div class="size-dots" id="size-dots">
+              <button class="size-dot" data-size="3"><span style="width:5px;height:5px"></span></button>
+              <button class="size-dot active" data-size="6"><span style="width:9px;height:9px"></span></button>
+              <button class="size-dot" data-size="12"><span style="width:14px;height:14px"></span></button>
+              <button class="size-dot" data-size="24"><span style="width:19px;height:19px"></span></button>
+              <button class="size-dot locked hidden" data-size="48" id="size-mega" title="mega brush"><span style="width:24px;height:24px"></span></button>
+            </div>
+            <button id="tool-pen" class="btn-brutal btn-tool active" title="pen">✏️</button>
+            <button id="tool-fill" class="btn-brutal btn-tool" title="fill">🪣</button>
+            <button id="tool-eraser" class="btn-brutal btn-tool" title="eraser">🧽</button>
+            <button id="tool-undo" class="btn-brutal btn-tool" title="undo">↩️</button>
+            <button id="tool-clear" class="btn-brutal btn-tool" title="clear">🗑️</button>
+          </div>
+          <div class="powerup-row" id="powerup-row"></div>
+        </div>
+        <div class="powerup-row guesser-powerups hidden" id="guesser-powerups"></div>
+      </div>
+
+      <aside class="chat-panel">
+        <div class="chat-header">guesses & chaos 💬</div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" class="input-brutal chat-input" type="text" maxlength="60" placeholder="type ur guess…" autocomplete="off" />
+          <button type="submit" class="btn-brutal btn-yellow btn-send">➤</button>
+        </form>
+      </aside>
+    </main>
+  </section>
+
+  <!-- ============ MODALS ============ -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="modal-pick-word" class="modal hidden">
+      <h2>PICK UR POISON 🧪</h2>
+      <div id="word-choices" class="word-choices"></div>
+      <label class="challenge-opt" id="challenge-opt">
+        <input type="checkbox" id="challenge-check" />
+        <span id="challenge-opt-text">accept today's challenge for 2x points</span>
+      </label>
+    </div>
+
+    <div id="modal-turn-end" class="modal hidden">
+      <h2 id="turn-end-title">TIME'S UP ⏰</h2>
+      <p class="reveal-word">the word was <strong id="revealed-word">???</strong></p>
+      <div id="ai-judge-box" class="ai-judge-box hidden"></div>
+      <div id="turn-scores" class="turn-scores"></div>
+    </div>
+
+    <div id="modal-game-over" class="modal modal-wide hidden">
+      <h2>FINAL LEADERBOARD 🏆</h2>
+      <div id="podium" class="podium"></div>
+      <div id="final-ranks" class="final-ranks"></div>
+      <button id="btn-back-lobby" class="btn-brutal btn-yellow btn-xl">RUN IT BACK 🔁</button>
+    </div>
+  </div>
+
+  <div id="toast-zone" class="toast-zone"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/video.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

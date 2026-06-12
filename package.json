@@ -1,0 +1,14 @@
+{
+  "name": "scribzo",
+  "version": "2.0.0",
+  "description": "SCRIBZO — multiplayer drawing game with video chat, AI judge, power-ups & daily challenges",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
