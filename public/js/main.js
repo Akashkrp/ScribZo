@@ -252,6 +252,29 @@
     setTimeout(() => location.reload(), 1500);
   });
 
+  // ---------- PWA: service worker + install button ----------
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    $('btn-install').classList.remove('hidden');
+  });
+  $('btn-install').onclick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      toast('scribzo installed 📲 welcome home');
+      $('btn-install').classList.add('hidden');
+    }
+    installPrompt = null;
+  };
+  window.addEventListener('appinstalled', () => $('btn-install').classList.add('hidden'));
+
   // fetch today's challenge for the home banner (before joining any room)
   fetch('/api/daily').then(r => r.json()).then(ch => {
     $('db-text').textContent = `${ch.emoji} ${ch.title} — ${ch.desc}`;

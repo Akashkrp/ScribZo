@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#ffd23f"/>
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="none" stroke="#141414" stroke-width="20"/>
+  <!-- pencil scribble -->
+  <path d="M96 330 C 150 220, 200 380, 256 270 S 380 160, 416 300"
+        fill="none" stroke="#141414" stroke-width="34" stroke-linecap="round"/>
+  <path d="M96 330 C 150 220, 200 380, 256 270 S 380 160, 416 300"
+        fill="none" stroke="#ff5d8f" stroke-width="16" stroke-linecap="round"/>
+  <!-- Z badge -->
+  <g transform="rotate(-8 256 256)">
+    <rect x="186" y="96" width="140" height="140" rx="28" fill="#9b5de5" stroke="#141414" stroke-width="14"/>
+    <text x="256" y="206" font-family="Arial Black, Arial, sans-serif" font-size="104" font-weight="900"
+          text-anchor="middle" fill="#ffffff" stroke="#141414" stroke-width="6">Z</text>
+  </g>
+</svg>

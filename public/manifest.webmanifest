@@ -1,0 +1,25 @@
+{
+  "name": "SCRIBZO — draw guess flex",
+  "short_name": "Scribzo",
+  "description": "Multiplayer drawing game with face cams, AI judge, power-ups & daily challenges",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5efe0",
+  "theme_color": "#ffd23f",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

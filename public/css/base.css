@@ -346,8 +346,38 @@ h1, h2, h3, .logo-mini { font-family: var(--font-display); text-transform: upper
 .modal h2 { font-size: 1.5rem; margin-bottom: 14px; text-shadow: 3px 3px 0 var(--yellow); }
 @keyframes modal-pop { from { opacity: 0; transform: scale(0.8) rotate(-2deg); } }
 
+.install-btn { margin-top: 16px; animation: sticker-float 3s ease-in-out infinite; }
+
 @media (max-width: 900px) {
   .lobby-wrap { grid-template-columns: 1fr; }
   .lobby-chat { min-height: 260px; }
   .home-stickers .sticker { display: none; }
+}
+
+/* ---- phones ---- */
+@media (max-width: 600px) {
+  body { background-size: 22px 22px; }
+  .ticker { height: 26px; }
+  .ticker-track { font-size: 0.62rem; }
+  .screen { padding-top: 26px; }
+
+  #screen-home { padding: 40px 14px 24px; }
+  .logo { text-shadow: 4px 4px 0 var(--yellow); }
+  .tagline { font-size: 0.95rem; }
+  .home-card { padding: 22px 16px; transform: none; }
+  .avatar-display { width: 72px; height: 72px; font-size: 2.3rem; }
+  .input-brutal { font-size: 16px; }   /* stops iOS zoom-on-focus */
+  .btn-xl { font-size: 1.05rem; padding: 14px 20px; }
+  .daily-banner { font-size: 0.78rem; padding: 7px 12px; }
+  .feature-strip span { font-size: 0.7rem; }
+
+  #screen-lobby { padding: 36px 12px 20px; }
+  .lobby-main { padding: 18px 14px; }
+  .lobby-title { font-size: 1.2rem; }
+  .lobby-players { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .chip { padding: 6px 12px; font-size: 0.78rem; }
+  .setting-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+  .toast { font-size: 0.8rem; padding: 7px 16px; }
+  .toast-zone { top: 32px; width: 92vw; }
 }
