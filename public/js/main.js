@@ -8,7 +8,16 @@
   let myName = '';
   let currentPlayers = [];
   let isHost = false;
+  let roomIsPrivate = true;
+  let joinedOnce = false;
   let mySettings = { rounds: 3, drawTime: 80, topic: 'mix' };
+
+  // session token: lets us reconnect with score intact if wifi blips / screen locks
+  let myToken = sessionStorage.getItem('scribzo-token');
+  if (!myToken) {
+    myToken = (crypto.randomUUID && crypto.randomUUID()) || `t-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem('scribzo-token', myToken);
+  }
 
   Canvas.init((d) => socket.emit('draw', d));
   GameUI.init(socket);
@@ -57,11 +66,11 @@
 
   $('btn-quick-play').onclick = () => {
     const name = getName();
-    if (name) socket.emit('quick-play', { name, avatar: AVATARS[avatarIdx] });
+    if (name) socket.emit('quick-play', { name, avatar: AVATARS[avatarIdx], token: myToken });
   };
   $('btn-create-room').onclick = () => {
     const name = getName();
-    if (name) socket.emit('create-room', { name, avatar: AVATARS[avatarIdx], settings: { isPrivate: true } });
+    if (name) socket.emit('create-room', { name, avatar: AVATARS[avatarIdx], settings: { isPrivate: true }, token: myToken });
   };
   $('btn-show-join').onclick = () => {
     $('join-box').classList.toggle('hidden');
@@ -75,7 +84,7 @@
     const name = getName();
     const code = $('input-room-code').value.trim();
     if (!code) return showError('enter the room code!');
-    if (name) socket.emit('join-room', { roomId: code, name, avatar: AVATARS[avatarIdx] });
+    if (name) socket.emit('join-room', { roomId: code, name, avatar: AVATARS[avatarIdx], token: myToken });
   }
 
   // ---------- lobby ----------
@@ -83,12 +92,18 @@
     currentPlayers = players;
     const box = $('lobby-players');
     box.innerHTML = '';
+    const meHost = !!players.find(p => p.id === socket.id && p.isHost);
     players.forEach(p => {
       const el = document.createElement('div');
       el.className = 'lobby-player';
       el.innerHTML = `<span class="av">${p.avatar}</span>
         <span class="nm">${GameUI.esc(p.name)}${p.id === socket.id ? ' (u)' : ''}</span>
-        ${p.isHost ? '<span class="host-tag">HOST</span>' : ''}`;
+        ${p.isHost ? '<span class="host-tag">HOST</span>' : ''}
+        ${meHost && p.id !== socket.id ? `<button class="p-act lobby-kick" title="kick">✕</button>` : ''}`;
+      const kickBtn = el.querySelector('.lobby-kick');
+      if (kickBtn) kickBtn.onclick = () => {
+        if (confirm(`kick ${p.name}?`)) socket.emit('kick-player', { playerId: p.id });
+      };
       box.appendChild(el);
     });
     $('btn-start-game').classList.toggle('hidden', !isHost);
@@ -153,6 +168,7 @@
   }
 
   $('btn-toggle-video').onclick = async () => {
+    if (!roomIsPrivate) return toast('cams are private-room only 🔒 make a room w/ the squad');
     const btn = $('btn-toggle-video');
     try {
       btn.disabled = true;
@@ -167,6 +183,7 @@
   };
 
   $('btn-toggle-mic').onclick = async () => {
+    if (!roomIsPrivate) return toast('voice is private-room only 🔒 make a room w/ the squad');
     const btn = $('btn-toggle-mic');
     try {
       btn.disabled = true;
@@ -198,6 +215,9 @@
   // ---------- socket: room lifecycle ----------
   socket.on('room-joined', ({ roomId, players, isHost: host, settings, state, powerups, challenge, topics }) => {
     isHost = host;
+    joinedOnce = true;
+    roomIsPrivate = !!settings.isPrivate;
+    currentPlayers = players;
     mySettings = { rounds: settings.rounds, drawTime: settings.drawTime, topic: settings.topic };
     $('lobby-room-code').textContent = roomId;
     GameUI.setPowerups(powerups);
@@ -255,7 +275,30 @@
     if (!$('screen-game').classList.contains('active')) showScreen('game');
   });
 
-  socket.on('disconnect', () => toast('connection lost… 🔌'));
+  socket.on('disconnect', () => toast('connection lost… reconnecting 🔌'));
+
+  // auto-rejoin with score intact after a drop / screen lock
+  socket.on('connect', () => {
+    if (joinedOnce) socket.emit('rejoin-room', { token: myToken });
+  });
+
+  socket.on('rejoin-failed', () => {
+    toast("couldn't rejoin — game moved on 💔");
+    setTimeout(() => location.reload(), 1800);
+  });
+
+  socket.on('players-updated', ({ players }) => {
+    currentPlayers = players;
+    isHost = players.find(p => p.id === socket.id)?.isHost || false;
+    if ($('screen-lobby').classList.contains('active')) renderLobby(players);
+    else GameUI.renderPlayers(players);
+  });
+
+  socket.on('kicked', ({ message }) => {
+    toast(message || 'you were kicked');
+    VideoChat.shutdown();
+    setTimeout(() => location.reload(), 1800);
+  });
 
   socket.on('room-closed', ({ message }) => {
     toast(message || 'room closed');

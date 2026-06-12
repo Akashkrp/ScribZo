@@ -1,12 +1,16 @@
 // ============ SCRIBZO voice & video (P2P mesh) ============
 // Camera and mic are fully independent: voice-only, video-only, or both.
 const VideoChat = (() => {
-  const ICE_CONFIG = {
+  let ICE_CONFIG = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' }
     ]
   };
+  // server may add a TURN relay (fixes video for strict-NAT / mobile-carrier users)
+  fetch('/api/ice').then(r => r.json()).then(cfg => {
+    if (cfg && cfg.iceServers) ICE_CONFIG = cfg;
+  }).catch(() => {});
 
   let socket = null;
   let myName = 'me';

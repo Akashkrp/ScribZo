@@ -166,20 +166,33 @@ const GameUI = (() => {
   // ---------- players & coins ----------
   function renderPlayers(players) {
     const ranked = [...players].sort((a, b) => b.score - a.score);
+    const meHost = !!players.find(p => p.id === socket.id && p.isHost);
     const panel = $('players-panel');
     panel.innerHTML = '';
     ranked.forEach((p, i) => {
       const row = document.createElement('div');
-      row.className = 'player-row' + (p.guessed ? ' guessed' : '') + (p.isDrawing ? ' drawing' : '');
+      row.className = 'player-row' + (p.guessed ? ' guessed' : '') + (p.isDrawing ? ' drawing' : '')
+        + (p.connected === false ? ' offline' : '');
+      const isMe = p.id === socket.id;
+      const actBtn = isMe ? '' : (meHost
+        ? `<button class="p-act" data-kick="${p.id}" title="kick">✕</button>`
+        : `<button class="p-act" data-report="${p.id}" title="report">🚩</button>`);
       row.innerHTML = `
         <span class="p-rank">#${i + 1}</span>
         <span class="p-av">${p.avatar}</span>
         <div class="p-info">
-          <div class="p-name">${esc(p.name)} ${p.id === socket.id ? '<span class="you">(u)</span>' : ''}</div>
+          <div class="p-name">${esc(p.name)} ${isMe ? '<span class="you">(u)</span>' : ''}${p.connected === false ? ' 🔌' : ''}</div>
           <div class="p-sub">${p.score} pts · 🪙${p.coins}</div>
         </div>
-        <span class="p-badge">${p.isDrawing ? '✏️' : (p.guessed ? '✅' : '')}${p.isHost ? '👑' : ''}</span>`;
+        <span class="p-badge">${p.isDrawing ? '✏️' : (p.guessed ? '✅' : '')}${p.isHost ? '👑' : ''}</span>
+        ${actBtn}`;
       panel.appendChild(row);
+      const kickBtn = row.querySelector('[data-kick]');
+      if (kickBtn) kickBtn.onclick = () => {
+        if (confirm(`kick ${p.name}? they can't come back`)) socket.emit('kick-player', { playerId: p.id });
+      };
+      const repBtn = row.querySelector('[data-report]');
+      if (repBtn) repBtn.onclick = () => socket.emit('report-player', { playerId: p.id });
       VideoChat.setPeerName(p.id, p.name);
       if (p.id === socket.id && p.coins !== myCoins) {
         myCoins = p.coins;

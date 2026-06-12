@@ -42,19 +42,67 @@ class Room {
     this.challenge = dailyChallenge();
     this.locked = false;            // once a game starts, room is never matchmade again
     this.lastActivity = Date.now(); // for stale-room cleanup
+    this.kickedTokens = new Set();  // kicked players can't rejoin
   }
 
   touch() { this.lastActivity = Date.now(); }
 
   // ---------- players ----------
-  addPlayer(socket, name, avatar) {
+  addPlayer(socket, name, avatar, token) {
     if (this.players.size >= this.settings.maxPlayers) return { error: 'room is full, sadge' };
+    if (token && this.kickedTokens.has(token)) return { error: 'you were kicked from this room 💀' };
     name = String(name || '').trim().slice(0, 16) || 'anon';
     avatar = String(avatar || '🐸').slice(0, 8);
-    const player = { id: socket.id, name, avatar, score: 0, coins: 30, guessed: false };
+    const player = {
+      id: socket.id, name, avatar, token: token || socket.id,
+      score: 0, coins: 30, guessed: false, connected: true
+    };
     this.players.set(socket.id, player);
     if (!this.hostId) this.hostId = socket.id;
     return { player };
+  }
+
+  // ---------- reconnection ----------
+  // disconnect = grace period, not removal; the player can rejoin with their token
+  markDisconnected(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return null;
+    player.connected = false;
+    player.disconnectedAt = Date.now();
+    const connectedCount = [...this.players.values()].filter(p => p.connected).length;
+    if (this.state !== 'lobby' && connectedCount < 2) {
+      this.endGame('not enough players 😢');
+      return player;
+    }
+    if (socketId === this.drawerId && (this.state === 'drawing' || this.state === 'picking')) {
+      this.io.to(this.id).emit('system-message', { text: 'the artist lost connection! skipping…', type: 'warn' });
+      this.nextTurn();
+    } else if (this.state === 'drawing') {
+      this.checkAllGuessed();
+    }
+    return player;
+  }
+
+  rejoin(socket, token) {
+    if (this.kickedTokens.has(token)) return { error: 'kicked' };
+    let old = null;
+    for (const p of this.players.values()) {
+      if (p.token === token && !p.connected) { old = p; break; }
+    }
+    if (!old) return { error: 'nothing to rejoin' };
+    const oldId = old.id;
+    this.players.delete(oldId);
+    old.id = socket.id;
+    old.connected = true;
+    this.players.set(socket.id, old);
+    // rebind every reference to the old socket id
+    this.turnOrder = this.turnOrder.map(id => (id === oldId ? socket.id : id));
+    if (this.drawerId === oldId) this.drawerId = socket.id;
+    if (this.hostId === oldId) this.hostId = socket.id;
+    if (this.guessedThisTurn.delete(oldId)) this.guessedThisTurn.add(socket.id);
+    const g = this.guessLog.get(oldId);
+    if (g) { this.guessLog.delete(oldId); this.guessLog.set(socket.id, g); }
+    return { player: old };
   }
 
   removePlayer(socketId) {
@@ -101,7 +149,8 @@ class Room {
       return this.beginRound();
     }
     this.drawerId = this.turnOrder[this.turnIndex];
-    if (!this.players.has(this.drawerId)) return this.nextTurn();
+    const drawerPlayer = this.players.get(this.drawerId);
+    if (!drawerPlayer || !drawerPlayer.connected) return this.nextTurn();
 
     this.state = 'picking';
     this.word = null;
@@ -241,8 +290,8 @@ class Room {
   }
 
   checkAllGuessed() {
-    const guessers = [...this.players.keys()].filter(id => id !== this.drawerId);
-    if (guessers.length > 0 && guessers.every(id => this.players.get(id)?.guessed)) {
+    const guessers = [...this.players.values()].filter(p => p.id !== this.drawerId && p.connected);
+    if (guessers.length > 0 && guessers.every(p => p.guessed)) {
       this.endTurn('all-guessed');
     }
   }
@@ -342,7 +391,8 @@ class Room {
   getPlayerList() {
     return [...this.players.values()].map(p => ({
       id: p.id, name: p.name, avatar: p.avatar, score: p.score, coins: p.coins,
-      guessed: p.guessed, isHost: p.id === this.hostId, isDrawing: p.id === this.drawerId
+      guessed: p.guessed, isHost: p.id === this.hostId, isDrawing: p.id === this.drawerId,
+      connected: p.connected
     }));
   }
 
